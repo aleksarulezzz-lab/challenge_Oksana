@@ -62,14 +62,15 @@
       <div class="wrap">
         <p class="kicker">Как это устроено</p>
         <h2 class="h2">Три недели. <em>Заметить, понять, выбрать.</em></h2>
-        <div class="weeks" data-weeks></div>
-        <ul class="rules">
-          <li><b>2 задания Оксаны</b><span>каждый день: наблюдение и маленькое действие, от 3 до 15 минут</span></li>
-          <li><b>Ваш личный шаг</b><span>к своей цели, которую вы выберете в первый день</span></li>
-          <li><b>Окно в 06:00 МСК</b><span>каждое утро открывается новая карточка. Пропустили? Вернитесь в выходные</span></li>
+        <div class="weeks reveal-seq" data-weeks></div>
+        <ul class="rules reveal-seq">
+          <li><b>Два задания от Оксаны</b><span>Каждый день программы вы получаете два задания от Оксаны: наблюдение и небольшое действие, от 3 до 15 минут.</span></li>
+          <li><b>Ваш личный шаг</b><span>Каждый день вы ставите себе задание в рамках своей личной цели. Цель вы выберете в первый день.</span></li>
+          <li><b>Отчёт в соцсетях</b><span data-social-rule></span></li>
+          <li><b>Новое задание каждое утро</b><span>Задания открываются в 6 утра по Москве. Каждое утро открывается новая карточка.</span></li>
           <li><b>Награда</b><span data-reward></span></li>
         </ul>
-        <p class="note">Правильных ответов нет. Можно по минимуму. Пропуск не наказывается.</p>
+        <p class="note note--strong">Правильных ответов нет, и пропуск не наказывается. Вы делаете это для себя, поэтому и ответственность за результат полностью ваша.</p>
       </div>
     </section>
 
@@ -94,9 +95,9 @@
           </div>
           <div class="progress__body">
             <div class="stats">
-              <div><b data-stat-tasks>0</b><span>заданий Оксаны из 42</span></div>
+              <div><b data-stat-tasks>0</b><span>заданий из 63</span></div>
               <div><b data-stat-steps>0</b><span>личных шагов</span></div>
-              <div><b data-stat-missed>0</b><span>окон ждут вас</span></div>
+              <div><b data-stat-social>0</b><span>отчётов в соцсетях</span></div>
             </div>
             <div class="route" data-route aria-label="Маршрут 21 дня"></div>
             <div class="tails" data-tails></div>
@@ -107,8 +108,7 @@
           <span><i class="lg lg--today"></i>Сегодня</span>
           <span><i class="lg lg--done">✓</i>Выполнено</span>
           <span><i class="lg lg--partial">½</i>Частично</span>
-          <span><i class="lg lg--waiting"></i>Можно вернуться</span>
-          <span><i class="lg lg--skipped">–</i>Пропущено</span>
+          <span><i class="lg lg--missed">–</i>Пропущено</span>
           <span><i class="lg lg--locked">🔒</i>Ещё закрыто</span>
           <span><i class="lg lg--anchor">★</i>Якорный день</span>
         </div>
@@ -124,7 +124,7 @@
           <p class="kicker">Дни 1–2</p>
           <h2 class="h2">Моя <em>цель</em></h2>
           <p class="lead">Цель, которая важна вам, и награда, которую вы подарите себе за дорогу. Можно менять в любой день.</p>
-          <p class="note">Эти записи хранятся только в вашем браузере. Оксана и мы их не видим.</p>
+          <p class="note">Эти записи хранятся только в вашем браузере, их никто, кроме вас, не видит.</p>
         </div>
         <form class="card goal__form" data-goal-form>
           <label>Моя цель на 21 день<textarea name="goal" rows="2" placeholder="Например: начать бегать по утрам"></textarea></label>
@@ -145,7 +145,7 @@
         <div>
           <p class="kicker">Финал</p>
           <h2 class="h2">Моя карта <em>21 дня</em></h2>
-          <p class="lead">Картинка для сторис: сетка из 21 окна и число пройденных дней. Личных текстов на ней нет.</p>
+          <p class="lead">Картинка для сторис: все 21 день и число пройденных дней. Личных текстов на ней нет.</p>
           <label class="check"><input type="checkbox" data-map-goal> Показать мою цель на карте</label>
           <div class="map__actions">
             <button class="pill pill--dark" type="button" data-map-make>Собрать карту</button>
@@ -166,7 +166,7 @@
         <p class="note">Челлендж не лечит и не заменяет терапию. Мы не обещаем «изменить жизнь за 21 день»: только структуру, поддержку и честную работу над своей целью.</p>
       </div>
       <div class="footer__privacy">
-        <p class="note">Отметки, цель и заметки хранятся только в этом браузере.</p>
+        <p class="note">Отметки, цель и заметки хранятся только в вашем браузере.</p>
         <button class="pill pill--ghost" type="button" data-wipe>Удалить мои данные</button>
       </div>
     </div>

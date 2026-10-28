@@ -28,7 +28,7 @@ export const store = {
   update(patch) { state = { ...state, ...patch }; save(); },
   mark(day) {
     const m = state.marks[day] || {};
-    return { t: [null, null], step: false, stepText: '', note: '', link: ['', ''], ...m, at: m.at };
+    return { step: false, stepText: '', note: '', link: ['', ''], ...m, t: [0, 1, 2].map((k) => m.t?.[k] ?? null), link: [0, 1, 2].map((k) => m.link?.[k] ?? ''), at: m.at };
   },
   setMark(day, m) { state.marks[day] = { ...m, at: Date.now() }; save(); },
   goal: () => ({ ...empty().goal, ...state.goal }),

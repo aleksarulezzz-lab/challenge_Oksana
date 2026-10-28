@@ -8,7 +8,7 @@ const MONTHS = ['января', 'февраля', 'марта', 'апреля', 
 const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
 // ---------- Время ----------
-// Всё считаем по Москве: окно дня N открывается в 06:00 МСК.
+// Всё считаем по Москве: задание дня N открывается в 06:00 МСК.
 const startMs = Date.parse(`${CHALLENGE.startDate}T00:00:00+03:00`);
 const openAt = (n) => startMs + (n - 1) * DAY_MS + CHALLENGE.openHourMsk * 36e5;
 const deadlineMs = Date.parse(CHALLENGE.deadline);
@@ -37,9 +37,8 @@ function dayInfo(n) {
   if (n > cur) state = 'locked';
   else if (done >= CHALLENGE.tasksToCountDay) state = 'done';
   else if (done > 0) state = 'partial';
-  else if (skipped) state = 'skipped';
-  else if (n === cur) state = 'today';
-  else state = 'waiting';
+  else if (n === cur && !skipped) state = 'today';
+  else state = 'missed';
   return { state, done, counted: done >= CHALLENGE.tasksToCountDay, step: m.step, isToday: n === cur };
 }
 
@@ -48,29 +47,31 @@ const STATE_LABEL = {
   today: ['●', 'Сегодня'],
   done: ['✓', 'Выполнено'],
   partial: ['½', 'Частично'],
-  waiting: ['↺', 'Можно вернуться'],
-  skipped: ['–', 'Пропущено'],
+  missed: ['–', 'Пропущено'],
 };
 
 function totals() {
-  let counted = 0, tasks = 0, steps = 0;
+  let counted = 0, tasks = 0, steps = 0, social = 0;
   const missed = [];
   for (const d of DAYS) {
     const i = dayInfo(d.day);
     if (i.counted) counted++;
     tasks += i.done;
     if (i.step) steps++;
-    if (['waiting', 'skipped', 'partial'].includes(i.state) && !i.isToday) missed.push(d.day);
+    if (store.mark(d.day).t[2] === 'done') social++;
+    if (['missed', 'partial'].includes(i.state) && !i.isToday) missed.push(d.day);
   }
-  return { counted, tasks, steps, missed };
+  return { counted, tasks, steps, social, missed };
 }
 
 // ---------- Отрисовка ----------
 function renderStatic() {
   document.title = `${CHALLENGE.title} · 21 день с Оксаной Миковой`;
-  $('[data-reward]').textContent = `кто засчитает все 21 день, получает ${CHALLENGE.reward} (обычная цена ${CHALLENGE.rewardPrice})`;
+  $('[data-reward]').textContent = `Кто выполнит все задания 21 дня, получает в подарок месяц доступа к клубу «Мастерская души» (обычная цена ${CHALLENGE.rewardPrice}).`;
+  $('[data-social-rule]').textContent = `Третье задание дня: поделиться результатом в соцсетях с хэштегом ${CHALLENGE.hashtag}.`;
   $('[data-weeks]').innerHTML = WEEKS.map((w) => `
     <article class="week">
+      <span class="week__dot" aria-hidden="true"></span>
       <div class="week__n">0${w.n}</div>
       <h3>${w.name}</h3>
       <p><b>${w.dates}.</b> ${w.text}</p>
@@ -91,7 +92,7 @@ function renderHeader() {
   }
   $('[data-countdown]').textContent = text;
   const badge = $('[data-today-badge]');
-  badge.textContent = cur === 0 ? 'Первое окно откроется 3 ноября в 06:00 МСК' : cur <= 21 && t < openAt(21) + DAY_MS ? `Сегодня: день ${cur}` : 'Все 21 окно открыты';
+  badge.textContent = cur === 0 ? 'Первое задание откроется 3 ноября в 06:00 МСК' : cur <= 21 && t < openAt(21) + DAY_MS ? `Сегодня: день ${cur}` : 'Все 21 задание открыты';
 }
 
 function plural(n, one, few, many) {
@@ -123,7 +124,7 @@ function card(d) {
     ${d.anchor ? '<span class="win__star" title="Якорный день">★</span>' : ''}
     <span class="win__num">${d.day}</span>
     <span class="win__date">${weekday(d.day)}, ${dateLabel(d.day)}</span>
-    <span class="win__theme">${locked ? 'Окно ещё закрыто' : d.theme}</span>
+    <span class="win__theme">${locked ? 'Ещё закрыто' : d.theme}</span>
     <span class="win__foot">
       <span class="win__block">${BLOCKS[d.block].name}</span>
       <span class="win__state"><span aria-hidden="true">${icon}</span>${locked ? '' : label}</span>
@@ -132,11 +133,11 @@ function card(d) {
 }
 
 function renderProgress() {
-  const { counted, tasks, steps, missed } = totals();
+  const { counted, tasks, steps, social, missed } = totals();
   $('[data-counted]').textContent = counted;
   $('[data-stat-tasks]').textContent = tasks;
   $('[data-stat-steps]').textContent = steps;
-  $('[data-stat-missed]').textContent = missed.length;
+  $('[data-stat-social]').textContent = social;
   $('[data-ring]').style.strokeDashoffset = String(326.7 * (1 - counted / 21));
 
   // Маршрут-бегунок: волнистая тропа из 21 точки, как на сайте Оксаны.
@@ -166,9 +167,9 @@ function renderProgress() {
 
   const tails = $('[data-tails]');
   if (missed.length) {
-    tails.innerHTML = `<p>Можно нагнать:</p>${missed.map((n) => `<button class="tail" data-day="${n}">День ${n} · ${dateLabel(n)}</button>`).join('')}`;
+    tails.innerHTML = `<p>Пропущенные дни можно выполнить до 24 ноября:</p>${missed.map((n) => `<button class="tail" data-day="${n}">День ${n} · ${dateLabel(n)}</button>`).join('')}`;
   } else {
-    tails.innerHTML = `<p>${cur === 0 ? 'Здесь появятся пропущенные окна, к которым можно вернуться.' : 'Хвостов нет. Вы идёте ровно.'}</p>`;
+    tails.innerHTML = `<p>${cur === 0 ? 'Здесь появятся пропущенные дни, если они будут.' : 'Пропущенных дней нет. Вы идёте ровно.'}</p>`;
   }
 
   const banner = $('[data-reward-banner]');
@@ -209,14 +210,14 @@ function renderDay(n) {
     body.innerHTML = `<div class="day__locked">
       <p class="kicker">День ${n} · ${weekday(n)}, ${dateLabel(n)}</p>
       <p class="display" aria-hidden="true">🔒</p>
-      <h2 id="day-title">Это окно ещё закрыто</h2>
-      <p class="note">Оно откроется ${dateLabel(n)} в 0${CHALLENGE.openHourMsk}:00 по Москве. А пока можно вернуться к открытым дням.</p>
+      <h2 id="day-title">Это задание ещё закрыто</h2>
+      <p class="note">Оно откроется ${dateLabel(n)} в 0${CHALLENGE.openHourMsk}:00 по Москве. А пока можно выполнить открытые дни.</p>
     </div>`;
     return;
   }
   const m = store.mark(n);
   const editable = canMark(n);
-  const tasks = d.tasks.map((t, k) => `
+  const tasks = allTasks(d).map((t, k) => `
     <div class="task">
       <div class="task__head"><span class="task__n">Задание ${k + 1}</span>${t.time ? `<span class="task__time">${t.time}</span>` : ''}</div>
       <p class="task__text">${t.text}</p>
@@ -226,7 +227,7 @@ function renderDay(n) {
         <button class="mark" data-v="skip" data-task="${k}" aria-pressed="${m.t[k] === 'skip'}" ${editable ? '' : 'disabled'}>Пропускаю</button>
       </div>
       ${t.social ? `<div class="social">
-        <p>Можно выполнить отчётом в соцсетях. Вот заготовка:</p>
+        <p>Заготовка текста, её можно поменять:</p>
         <p><i>${t.social}</i></p>
         <div class="social__row">
           <button class="pill pill--ghost" type="button" data-copy="${encodeURIComponent(t.social)}">Скопировать</button>
@@ -245,7 +246,7 @@ function renderDay(n) {
       ${d.anchor ? '<span class="tag">★ якорный</span>' : ''}
     </div>
     <h2 id="day-title">${d.theme}</h2>
-    <p class="day__hint">Правильных ответов нет. Можно по минимуму.${d.note ? ` ${d.note}` : ''}</p>
+    <p class="day__hint">Правильных ответов нет. Вы делаете это для себя.${d.note ? ` ${d.note}` : ''}</p>
     ${d.link ? `<a class="tool-link" href="${d.link.href}" target="_blank" rel="noopener">${d.link.label} ↗</a>` : ''}
     ${tasks}
     <div class="step">
@@ -271,6 +272,15 @@ function stepHint(n) {
   return steps[n - 1] || 'Что я сделаю сегодня для своей цели';
 }
 
+// Третье задание каждого дня: отчёт в соцсетях с хэштегом челленджа.
+function allTasks(d) {
+  return [...d.tasks, {
+    text: `Поделитесь в соцсетях, что сделали сегодня и что заметили. Добавьте хэштег ${CHALLENGE.hashtag}.`,
+    time: '3 мин',
+    social: `День ${d.day} челленджа «${CHALLENGE.title}» с Оксаной Миковой. Тема дня: «${d.theme}». Сегодня я ___. ${CHALLENGE.hashtag}`,
+  }];
+}
+
 const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
 
@@ -285,7 +295,7 @@ dialog.addEventListener('click', async (e) => {
     store.setMark(openDay, m);
     renderAll();
     if (!wasCounted && dayInfo(openDay).counted) toast(`День ${openDay} засчитан. Так держать!`);
-    else if (v === 'skip' && m.t[k] === 'skip') toast('Без вины. К этому заданию можно вернуться.');
+    else if (v === 'skip' && m.t[k] === 'skip') toast('Пропуск не наказывается. К заданию можно вернуться до 24 ноября.');
     return;
   }
   const go = e.target.closest('[data-goto]');
@@ -338,7 +348,7 @@ function initGoal() {
     data.steps = data.steps.split('\n').slice(0, 21).join('\n');
     store.setGoal(data);
     clearTimeout(timer);
-    $('[data-saved]').textContent = 'Сохранено в этом браузере';
+    $('[data-saved]').textContent = 'Сохранено в вашем браузере';
     timer = setTimeout(() => { $('[data-saved]').textContent = ''; }, 2000);
   });
   $('[data-download-goal]').addEventListener('click', () => {
@@ -395,12 +405,11 @@ async function makeMap() {
   DAYS.forEach((d, i) => {
     const info = dayInfo(d.day);
     const px = gx + (i % 7) * (size + gap), py = gy + Math.floor(i / 7) * (size + gap + 10);
-    const fill = { done: '#2f6238', partial: '#a9cbae', skipped: '#ece2cc', waiting: '#faf2de', today: '#925d10', locked: '#e1d7c2' }[info.state];
+    const fill = { done: '#2f6238', partial: '#a9cbae', missed: '#ece2cc', today: '#925d10', locked: '#e1d7c2' }[info.state];
     roundRect(x, px, py, size, size, 20);
     x.fillStyle = fill; x.fill();
-    x.strokeStyle = info.state === 'waiting' ? '#925d10' : 'rgba(26,21,16,0.12)';
-    x.setLineDash(info.state === 'waiting' ? [10, 8] : []);
-    x.lineWidth = 3; x.stroke(); x.setLineDash([]);
+    x.strokeStyle = 'rgba(26,21,16,0.12)';
+    x.lineWidth = 3; x.stroke();
     x.fillStyle = ['done', 'today'].includes(info.state) ? '#fff' : '#1a1510';
     x.font = '400 46px "Playfair Display", serif';
     x.textAlign = 'center';
@@ -487,7 +496,7 @@ function toast(text) {
 }
 
 $('[data-wipe]').addEventListener('click', () => {
-  if (!confirm('Удалить все отметки, цель и заметки из этого браузера? Это нельзя отменить.')) return;
+  if (!confirm('Удалить все отметки, цель и заметки из вашего браузера? Это нельзя отменить.')) return;
   store.wipe();
   location.reload();
 });
@@ -509,6 +518,11 @@ function initDemo() {
 
 // Появление карточек при первом показе календаря.
 function initReveal() {
+  const seq = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('is-in'); seq.unobserve(e.target); }
+  }, { threshold: 0.12 });
+  $$('.reveal-seq').forEach((el) => seq.observe(el));
+
   const grid = $('[data-grid]');
   new IntersectionObserver(([e], obs) => {
     if (!e.isIntersecting) return;
@@ -558,5 +572,5 @@ if (m && +m[1] >= 1 && +m[1] <= 21) {
   $('#calendar').scrollIntoView();
   openDialog(+m[1]);
 }
-// Если вкладка висит открытой, новое окно должно появиться само в 06:00.
+// Если вкладка висит открытой, новое задание должно появиться само в 06:00.
 setInterval(() => { if (!params.has('demo') && !dialog.open) renderAll(); }, 60_000);
