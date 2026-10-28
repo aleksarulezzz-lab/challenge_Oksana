@@ -39,7 +39,7 @@ function dayInfo(n) {
   else if (done > 0) state = 'partial';
   else if (n === cur && !skipped) state = 'today';
   else state = 'missed';
-  return { state, done, counted: done >= CHALLENGE.tasksToCountDay, step: m.step, isToday: n === cur };
+  return { state, done, counted: done >= CHALLENGE.tasksToCountDay, step: m.step, isToday: n === cur, needsReturn: ['partial', 'missed'].includes(state) && n < cur };
 }
 
 const STATE_LABEL = {
@@ -61,7 +61,17 @@ function totals() {
     if (store.mark(d.day).t[2] === 'done') social++;
     if (['missed', 'partial'].includes(i.state) && !i.isToday) missed.push(d.day);
   }
-  return { counted, tasks, steps, social, missed };
+  return { counted, tasks, steps, social, missed, streak: streak() };
+}
+
+// Серия: сколько засчитанных дней подряд, считая от сегодня (или вчера, если сегодня ещё не закрыт).
+function streak() {
+  let n = currentDay();
+  if (n === 0) return 0;
+  if (!dayInfo(n).counted) n--;
+  let s = 0;
+  while (n >= 1 && dayInfo(n).counted) { s++; n--; }
+  return s;
 }
 
 // ---------- Отрисовка ----------
@@ -106,9 +116,12 @@ function renderGrid() {
   const grid = $('[data-grid]');
   grid.innerHTML = WEEKS.map((w) => {
     const days = DAYS.slice((w.n - 1) * 7, w.n * 7);
+    // Неделя закончилась в полночь МСК после её последнего дня.
+    const over = now() >= startMs + w.n * 7 * DAY_MS;
     return `<div class="grid__week">
       <h3>Неделя ${w.n} · ${w.name} <small>${w.dates}</small></h3>
       <div class="grid__row">${days.map(card).join('')}</div>
+      ${over ? `<aside class="week-done"><b>${w.n === 3 ? 'Вы прошли весь путь' : `Неделя ${w.n} позади`}</b><p>${w.done}</p></aside>` : ''}
     </div>`;
   }).join('');
 }
@@ -118,26 +131,29 @@ function card(d) {
   const [icon, label] = STATE_LABEL[i.state];
   const locked = i.state === 'locked';
   const opens = locked ? `Откроется ${dateLabel(d.day)}` : label;
-  return `<button class="win${i.isToday ? ' is-today' : ''}" data-state="${i.state}" data-day="${d.day}"
+  return `<button class="win${i.isToday ? ' is-today' : ''}${i.needsReturn ? ' needs-return' : ''}" data-state="${i.state}" data-day="${d.day}"
       ${locked ? 'aria-disabled="true"' : ''}
       aria-label="День ${d.day}, ${dateLabel(d.day)}. ${locked ? opens : `${d.theme}. ${label}`}">
     ${d.anchor ? '<span class="win__star" title="Якорный день">★</span>' : ''}
+    ${i.needsReturn ? '<span class="win__return">Нужно вернуться</span>' : ''}
     <span class="win__num">${d.day}</span>
     <span class="win__date">${weekday(d.day)}, ${dateLabel(d.day)}</span>
     <span class="win__theme">${locked ? 'Ещё закрыто' : d.theme}</span>
     <span class="win__foot">
-      <span class="win__block">${BLOCKS[d.block].name}</span>
+      <span class="win__block">${BLOCKS[d.block].name}${streamOf(d.day) ? ' · эфир' : ''}</span>
       <span class="win__state"><span aria-hidden="true">${icon}</span>${locked ? '' : label}</span>
     </span>
   </button>`;
 }
 
 function renderProgress() {
-  const { counted, tasks, steps, social, missed } = totals();
+  const { counted, tasks, steps, social, missed, streak: series } = totals();
   $('[data-counted]').textContent = counted;
   $('[data-stat-tasks]').textContent = tasks;
   $('[data-stat-steps]').textContent = steps;
   $('[data-stat-social]').textContent = social;
+  $('[data-stat-streak]').textContent = series;
+  $('[data-stat-streak-label]').textContent = `${plural(series, 'день', 'дня', 'дней')} подряд`;
   $('[data-ring]').style.strokeDashoffset = String(326.7 * (1 - counted / 21));
 
   // Маршрут-бегунок: волнистая тропа из 21 точки, как на сайте Оксаны.
@@ -174,7 +190,11 @@ function renderProgress() {
 
   const banner = $('[data-reward-banner]');
   banner.hidden = counted < 21;
-  if (counted >= 21) banner.innerHTML = `<b>Все 21 день засчитаны!</b>Ваша награда: ${CHALLENGE.reward}. Как её получить, Оксана расскажет в боте.`;
+  if (counted >= 21) {
+    banner.innerHTML = `<b>Все 21 день пройдены!</b>
+      <p>Ваш подарок: месяц доступа к клубу «Мастерская души». Чтобы его получить, соберите карту 21 дня и отправьте её Оксане в Telegram.</p>
+      <a class="pill pill--dark" href="${CHALLENGE.contactUrl}" target="_blank" rel="noopener">Написать Оксане</a>`;
+  }
 }
 
 function renderAll() {
@@ -281,6 +301,8 @@ function allTasks(d) {
   }];
 }
 
+const streamOf = (n) => CHALLENGE.streams.find((s) => s.day === n);
+
 const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
 
@@ -291,10 +313,13 @@ dialog.addEventListener('click', async (e) => {
     const v = mark.dataset.v;
     const m = store.mark(openDay);
     const wasCounted = dayInfo(openDay).counted;
+    const seriesBefore = streak();
     m.t[k] = m.t[k] === v ? null : v;
     store.setMark(openDay, m);
     renderAll();
-    if (!wasCounted && dayInfo(openDay).counted) toast(`День ${openDay} засчитан. Так держать!`);
+    const seriesAfter = streak();
+    if (seriesAfter > seriesBefore && seriesAfter >= 5 && seriesAfter % 5 === 0) toast(`${seriesAfter} дней подряд! Вот это характер.`);
+    else if (!wasCounted && dayInfo(openDay).counted) toast(`День ${openDay} засчитан. Так держать!`);
     else if (v === 'skip' && m.t[k] === 'skip') toast('Пропуск не наказывается. К заданию можно вернуться до 24 ноября.');
     return;
   }
@@ -357,6 +382,39 @@ function initGoal() {
     const text = `${CHALLENGE.title}. Моя цель на 21 день\n\nЦель: ${v.goal}\n\nПочему это важно: ${v.why}\n\nМоя награда: ${v.reward}\n\nШаги:\n${steps}\n`;
     download(new Blob([text], { type: 'text/plain;charset=utf-8' }), 'moya-cel-21-den.txt');
   });
+}
+
+// Напоминание: участница сама добавляет его в календарь телефона, сайт ничего не сохраняет.
+function reminderIcs() {
+  const pad = (n) => String(n).padStart(2, '0');
+  const utc = (ms) => { const d = new Date(ms); return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`; };
+  const first = startMs + CHALLENGE.reminderHourMsk * 36e5;
+  const until = startMs + 21 * DAY_MS + CHALLENGE.reminderHourMsk * 36e5; // включая 24 ноября: последний шанс нагнать
+  const url = location.origin + location.pathname;
+  return [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//mikova//challenge21//RU', 'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:challenge21-reminder@${location.hostname || 'local'}`,
+    `DTSTAMP:${utc(Date.now())}`,
+    `DTSTART:${utc(first)}`,
+    `DTEND:${utc(first + 15 * 60e3)}`,
+    `RRULE:FREQ=DAILY;UNTIL=${utc(until)}`,
+    `SUMMARY:${CHALLENGE.title}: проверьте задания дня`,
+    `DESCRIPTION:Выполнены ли все три задания? Пропущенные дни можно нагнать до 24 ноября. ${url}`,
+    `URL:${url}`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:PT0M', `DESCRIPTION:${CHALLENGE.title}: проверьте задания дня`, 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR',
+  ].join('\r\n');
+}
+
+function renderStreams() {
+  $('[data-streams]').innerHTML = CHALLENGE.streams.map((s, i) => `
+    <article class="stream">
+      <span class="stream__date">${dateLabel(s.day)}, ${weekday(s.day) === 'вс' ? 'воскресенье' : weekday(s.day)}</span>
+      <h3>Эфир ${i + 1}. ${s.title}</h3>
+      <p>${s.text}</p>
+      <span class="stream__time">Вечером, 20–30 минут</span>
+    </article>`).join('');
 }
 
 function download(blob, name) {
@@ -543,16 +601,21 @@ async function initHero() {
     console.warn('3D-компас недоступен, показываем картинку', err);
     document.documentElement.classList.add('no-webgl');
   }
+  const routeStage = $('.hero__stage--route');
   const fade = (p, a, b) => Math.min(1, Math.max(0, (p - a) / (b - a)));
   const onScroll = () => {
     const r = hero.getBoundingClientRect();
     const p = Math.min(1, Math.max(0, -r.top / (r.height - innerHeight)));
-    compass?.setProgress(fade(p, 0.06, 0.62));
-    intro.style.opacity = String(1 - fade(p, 0.02, 0.2));
-    intro.style.visibility = p > 0.22 ? 'hidden' : 'visible';
-    const o = Math.min(fade(p, 0.38, 0.55), 1 - fade(p, 0.88, 0.99));
+    // 0–0.45: разлёт, 0.55–0.85: детали ложатся в маршрут из 21 точки.
+    compass?.setProgress(fade(p, 0.05, 0.45), fade(p, 0.55, 0.85));
+    intro.style.opacity = String(1 - fade(p, 0.02, 0.18));
+    intro.style.visibility = p > 0.2 ? 'hidden' : 'visible';
+    const o = Math.min(fade(p, 0.28, 0.4), 1 - fade(p, 0.5, 0.58));
     partsStage.style.opacity = String(o);
     partsStage.style.transform = `translateY(${(1 - o) * 20}px)`;
+    const ro = fade(p, 0.78, 0.9);
+    routeStage.style.opacity = String(ro);
+    routeStage.style.transform = `translate(-50%, ${(1 - ro) * 20}px)`;
   };
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('resize', onScroll);
@@ -560,7 +623,12 @@ async function initHero() {
 }
 
 renderStatic();
+renderStreams();
 renderAll();
+$('[data-reminder]').addEventListener('click', () => {
+  download(new Blob([reminderIcs()], { type: 'text/calendar;charset=utf-8' }), 'napominanie-21-den.ics');
+  toast('Откройте файл, и напоминание появится в календаре');
+});
 initGoal();
 initMap();
 initDemo();

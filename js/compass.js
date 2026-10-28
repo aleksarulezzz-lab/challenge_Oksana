@@ -431,13 +431,83 @@ export function createCompass(canvas, { onReady } = {}) {
   crown.add(stem, knob, ridges, bow);
   add(crown, [0, 0.45, 0.3], [0, 0.8, 0], 0.5);
 
+  // ---------- Тень и тёплый свет лампы ----------
+
+  const shadowCanvas = document.createElement('canvas');
+  shadowCanvas.width = shadowCanvas.height = 256;
+  {
+    const sx = shadowCanvas.getContext('2d');
+    const g = sx.createRadialGradient(128, 128, 20, 128, 128, 128);
+    g.addColorStop(0, 'rgba(70,45,15,0.55)');
+    g.addColorStop(0.55, 'rgba(70,45,15,0.22)');
+    g.addColorStop(1, 'rgba(70,45,15,0)');
+    sx.fillStyle = g;
+    sx.fillRect(0, 0, 256, 256);
+  }
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(shadowCanvas), transparent: true, depthWrite: false, toneMapped: false }));
+  shadow.renderOrder = -1;
+  scene.add(shadow);
+
+  const lamp = new THREE.PointLight(0xffb066, 55, 0, 2);
+  scene.add(lamp);
+
+  // ---------- Маршрут: детали выстраиваются в 21 точку, как дни челленджа ----------
+
+  const box = new THREE.Box3(), sphere = new THREE.Sphere();
+  scene.updateMatrixWorld(true);
+  for (const p of parts) {
+    box.setFromObject(p).getBoundingSphere(sphere);
+    p.userData.radius = Math.max(0.05, sphere.radius);
+    // Центр детали относительно её точки привязки: без этого головка с ушком съезжает с маршрута.
+    p.userData.center = sphere.center.clone().sub(p.position);
+  }
+  // Порядок на маршруте: от задней крышки к стеклу, как собирали.
+  const routeOrder = [...parts].sort((a, b) => a.userData.home.z - b.userData.home.z);
+  routeOrder.forEach((p, i) => { p.userData.routeIdx = i; });
+  const routePts = [];
+  let routeR = 0.1;
+  // Пунктирная тропа между деталями, как маршрут на сайте Оксаны.
+  const routeLine = new THREE.Line(new THREE.BufferGeometry(),
+    new THREE.LineDashedMaterial({ color: 0xb47a28, dashSize: 0.09, gapSize: 0.08, transparent: true, opacity: 0 }));
+  scene.add(routeLine);
+
+  function layoutRoute() {
+    const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
+    const halfW = halfH * camera.aspect;
+    routePts.length = 0;
+    if (portrait) {
+      // Змейка из трёх рядов по 7: три недели.
+      const w = halfW * 0.78, rowH = halfH * 0.2;
+      for (let i = 0; i < 21; i++) {
+        const row = Math.floor(i / 7), col = i % 7;
+        const x = -w + (row % 2 ? 6 - col : col) * (2 * w / 6);
+        routePts.push(new THREE.Vector3(x, halfH * 0.3 - row * rowH + Math.sin(col * 0.9) * 0.08, 0));
+      }
+      routeR = (2 * w / 6) * 0.36;
+    } else {
+      const w = halfW * 0.82;
+      for (let i = 0; i < 21; i++) {
+        const t = i / 20;
+        routePts.push(new THREE.Vector3(-w + t * 2 * w, halfH * 0.02 + Math.sin(t * Math.PI * 3) * halfH * 0.16, 0));
+      }
+      routeR = (2 * w / 20) * 0.38;
+    }
+    const curve = new THREE.CatmullRomCurve3(routePts.map((v) => v.clone().setZ(-0.3)));
+    routeLine.geometry.setFromPoints(curve.getPoints(400));
+    routeLine.computeLineDistances();
+  }
+
   // ---------- Анимация ----------
 
-  let explode = 0, target = 0, portrait = false;
-  const pointer = { x: 0, y: 0, sx: 0, sy: 0 };
-  let visible = true, needsFrame = true, raf = 0;
+  let explode = 0, target = 0, route = 0, routeTarget = 0, portrait = false;
+  const pointer = { x: 0, y: 0, sx: 0, sy: 0, moved: false };
+  const tilt = { gamma: null };
+  const needleSpring = { a: 0, v: 0 };
+  let visible = true, raf = 0;
   const clock = new THREE.Clock();
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const tmpV = new THREE.Vector3();
 
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -447,28 +517,59 @@ export function createCompass(canvas, { onReady } = {}) {
     portrait = w / h < 0.9;
     camera.position.z = portrait ? 15 : 10.5;
     camera.updateProjectionMatrix();
-    needsFrame = true;
+    layoutRoute();
+  }
+
+  // Куда смотрит стрелка: на курсор, а на телефоне по наклону.
+  function needleTarget(time) {
+    if (tilt.gamma !== null) return THREE.MathUtils.degToRad(Math.max(-60, Math.min(60, tilt.gamma))) * -1.4;
+    if (pointer.moved) {
+      tmpV.setFromMatrixPosition(root.matrixWorld).project(camera);
+      const dx = pointer.x - tmpV.x, dy = -pointer.y - tmpV.y;
+      return -Math.atan2(dx * camera.aspect, dy);
+    }
+    return reduce ? 0 : Math.sin(time * 1.3) * 0.05 + Math.sin(time * 0.37) * 0.04;
   }
 
   function update(time) {
-    explode += (target - explode) * (reduce ? 1 : 0.12);
+    const k = reduce ? 1 : 0.12;
+    explode += (target - explode) * k;
+    route += (routeTarget - route) * k;
     const e = explode;
     const maxDelay = 0.5;
     for (const p of parts) {
-      const { home, homeRot, off, rot, delay } = p.userData;
+      const { home, homeRot, off, rot, delay, radius, center, routeIdx } = p.userData;
       const t = ease(clamp01((e * (1 + maxDelay) - delay)));
-      p.position.set(home.x + off.x * t, home.y + off.y * t, home.z + off.z * t);
-      p.rotation.set(homeRot.x + rot[0] * t, homeRot.y + rot[1] * t, homeRot.z + rot[2] * t);
+      const r = ease(clamp01(route * 1.4 - (routeIdx / 20) * 0.4));
+      const rp = routePts[routeIdx] || home;
+      const sc = routeR / radius;
+      p.position.set(
+        lerp(home.x + off.x * t, rp.x - center.x * sc, r),
+        lerp(home.y + off.y * t, rp.y - center.y * sc, r),
+        lerp(home.z + off.z * t, rp.z - center.z * sc, r),
+      );
+      p.rotation.set(
+        lerp(homeRot.x + rot[0] * t, 0, r),
+        lerp(homeRot.y + rot[1] * t, 0, r),
+        homeRot.z + rot[2] * t,
+      );
+      p.scale.setScalar(lerp(1, sc, r));
     }
     // Шестерёнки крутятся, пока компас открыт.
-    gears.forEach((g) => { g.userData.homeRot.z += g.userData.spin * 0.6 * e; });
-    // Стрелка ищет север: лёгкое покачивание.
-    if (!reduce) needle.userData.homeRot.z = Math.sin(time * 1.3) * 0.05 + Math.sin(time * 0.37) * 0.04;
+    gears.forEach((g) => { g.userData.homeRot.z += g.userData.spin * 0.6 * Math.max(e, route); });
+    // Стрелка как у настоящего компаса: тянется к цели с лёгким перелётом.
+    const goal = needleTarget(time);
+    let diff = goal - needleSpring.a;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    needleSpring.v = (needleSpring.v + diff * 0.03) * 0.9;
+    needleSpring.a += needleSpring.v;
+    needle.userData.homeRot.z = needleSpring.a;
 
     pointer.sx += (pointer.x - pointer.sx) * 0.05;
     pointer.sy += (pointer.y - pointer.sy) * 0.05;
     const idle = reduce ? 0 : Math.sin(time * 0.5) * 0.04;
     const se = ease(clamp01(e));
+    const sr = ease(clamp01(route));
     if (portrait) {
       root.rotation.set(-0.25 - se * 0.95 + pointer.sy * 0.15, 0.25 - se * 0.15 + pointer.sx * 0.25 + idle, se * 0.15);
       root.position.set(0, lerp(1.45, 1.3, se), 0);
@@ -478,6 +579,24 @@ export function createCompass(canvas, { onReady } = {}) {
       root.position.set(lerp(1.85, 0.75, se), lerp(-0.25, -0.2, se), 0);
       root.scale.setScalar(lerp(0.92, 0.8, se));
     }
+    // На маршруте корпус встаёт ровно к экрану, чтобы точки легли в линию.
+    if (sr > 0) {
+      root.rotation.set(lerp(root.rotation.x, 0, sr), lerp(root.rotation.y, 0, sr), lerp(root.rotation.z, 0, sr));
+      root.position.lerp(tmpV.set(0, 0, 0), sr);
+      root.scale.setScalar(lerp(root.scale.x, 1, sr));
+    }
+    root.updateMatrixWorld();
+    routeLine.material.opacity = ease(clamp01(route * 1.6 - 0.5)) * 0.85;
+    glass.material.opacity = lerp(0.16, 0.55, sr);
+
+    // Мягкая тень позади компаса, исчезает, когда он разлетается.
+    shadow.position.set(root.position.x + 0.35 * root.scale.x, root.position.y - 0.45 * root.scale.x, -1.4);
+    shadow.scale.setScalar(root.scale.x * 1.05);
+    shadow.material.opacity = (1 - se) * 0.9;
+
+    // Тёплая лампа медленно ходит перед компасом и даёт бегущие блики.
+    const la = reduce ? 0.6 : time * 0.35;
+    lamp.position.set(root.position.x + Math.cos(la) * 2.6, root.position.y + 1.6 + Math.sin(la * 1.3) * 0.8, 3.2);
   }
 
   function frame() {
@@ -493,9 +612,25 @@ export function createCompass(canvas, { onReady } = {}) {
   ro.observe(canvas);
   resize();
   window.addEventListener('pointermove', (ev) => {
+    if (ev.pointerType !== 'mouse') return;
     pointer.x = (ev.clientX / window.innerWidth) * 2 - 1;
     pointer.y = (ev.clientY / window.innerHeight) * 2 - 1;
+    pointer.moved = true;
   }, { passive: true });
+
+  // Наклон телефона. На iPhone браузер спрашивает разрешение после первого касания.
+  const onTilt = (ev) => { if (ev.gamma !== null) tilt.gamma = ev.gamma; };
+  if ('DeviceOrientationEvent' in window) {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      window.addEventListener('touchend', () => {
+        DeviceOrientationEvent.requestPermission()
+          .then((r) => { if (r === 'granted') window.addEventListener('deviceorientation', onTilt); })
+          .catch(() => {});
+      }, { once: true });
+    } else {
+      window.addEventListener('deviceorientation', onTilt);
+    }
+  }
 
   new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting;
@@ -512,7 +647,7 @@ export function createCompass(canvas, { onReady } = {}) {
   onReady?.();
 
   return {
-    setProgress(v) { target = clamp01(v); },
+    setProgress(v, r = 0) { target = clamp01(v); routeTarget = clamp01(r); },
     partsCount: parts.length,
   };
 }
