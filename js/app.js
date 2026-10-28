@@ -134,7 +134,6 @@ function card(d) {
   return `<button class="win${i.isToday ? ' is-today' : ''}${i.needsReturn ? ' needs-return' : ''}" data-state="${i.state}" data-day="${d.day}"
       ${locked ? 'aria-disabled="true"' : ''}
       aria-label="День ${d.day}, ${dateLabel(d.day)}. ${locked ? opens : `${d.theme}. ${label}`}">
-    ${d.anchor ? '<span class="win__star" title="Якорный день">★</span>' : ''}
     ${i.needsReturn ? '<span class="win__return">Нужно вернуться</span>' : ''}
     <span class="win__num">${d.day}</span>
     <span class="win__date">${weekday(d.day)}, ${dateLabel(d.day)}</span>
@@ -199,6 +198,7 @@ function renderProgress() {
 
 function renderAll() {
   renderHeader();
+  renderGoalBits();
   renderGrid();
   renderProgress();
   if (dialog.open && openDay) renderDay(openDay);
@@ -263,7 +263,6 @@ function renderDay(n) {
       <span class="tag tag--accent">День ${n}</span>
       <span class="tag">${weekday(n)}, ${dateLabel(n)}</span>
       <span class="tag">${BLOCKS[d.block].name}</span>
-      ${d.anchor ? '<span class="tag">★ якорный</span>' : ''}
     </div>
     <h2 id="day-title">${d.theme}</h2>
     <p class="day__hint">Правильных ответов нет. Вы делаете это для себя.${d.note ? ` ${d.note}` : ''}</p>
@@ -271,7 +270,7 @@ function renderDay(n) {
     ${tasks}
     <div class="step">
       <label class="field">Мой личный шаг сегодня
-        <input type="text" data-step-text value="${escapeAttr(m.stepText)}" placeholder="${escapeAttr(stepHint(n))}">
+        <input type="text" data-step-text value="${escapeAttr(m.stepText)}" placeholder="${escapeAttr(stepHint())}">
       </label>
       <label class="check" style="margin:0"><input type="checkbox" data-step ${m.step ? 'checked' : ''}> Сделала свой шаг</label>
       <label class="field">Заметки для себя (видны только вам)
@@ -287,9 +286,8 @@ function renderDay(n) {
     </div>`;
 }
 
-function stepHint(n) {
-  const steps = store.goal().steps.split('\n').map((s) => s.trim()).filter(Boolean);
-  return steps[n - 1] || 'Что я сделаю сегодня для своей цели';
+function stepHint() {
+  return 'Что я сделаю сегодня для своей цели';
 }
 
 // Третье задание каждого дня: отчёт в соцсетях с хэштегом челленджа.
@@ -338,7 +336,7 @@ dialog.addEventListener('click', async (e) => {
 dialog.addEventListener('input', (e) => {
   if (!openDay) return;
   const m = store.mark(openDay);
-  if (e.target.matches('[data-step-text]')) m.stepText = e.target.value;
+  if (e.target.matches('[data-step-text]')) { m.stepText = e.target.value; store.setMark(openDay, m); renderGoalBits(); return; }
   else if (e.target.matches('[data-note]')) m.note = e.target.value;
   else if (e.target.matches('[data-link]')) m.link[Number(e.target.dataset.link)] = e.target.value;
   else return;
@@ -366,22 +364,38 @@ document.addEventListener('click', (e) => {
 function initGoal() {
   const form = $('[data-goal-form]');
   const g = store.goal();
-  for (const k of ['goal', 'why', 'reward', 'steps']) form.elements[k].value = g[k] || '';
+  for (const k of ['goal', 'why', 'reward']) form.elements[k].value = g[k] || '';
   let timer;
   form.addEventListener('input', () => {
-    const data = Object.fromEntries(['goal', 'why', 'reward', 'steps'].map((k) => [k, form.elements[k].value]));
-    data.steps = data.steps.split('\n').slice(0, 21).join('\n');
-    store.setGoal(data);
+    store.setGoal(Object.fromEntries(['goal', 'why', 'reward'].map((k) => [k, form.elements[k].value])));
+    renderGoalBits();
     clearTimeout(timer);
     $('[data-saved]').textContent = 'Сохранено в вашем браузере';
     timer = setTimeout(() => { $('[data-saved]').textContent = ''; }, 2000);
   });
   $('[data-download-goal]').addEventListener('click', () => {
     const v = store.goal();
-    const steps = v.steps.split('\n').filter((s) => s.trim()).map((s, i) => `${i + 1}. ${s.trim()}`).join('\n');
-    const text = `${CHALLENGE.title}. Моя цель на 21 день\n\nЦель: ${v.goal}\n\nПочему это важно: ${v.why}\n\nМоя награда: ${v.reward}\n\nШаги:\n${steps}\n`;
+    const steps = dailySteps().map(([n, s]) => `День ${n}. ${s}`).join('\n') || 'Пока пусто: шаги появятся, когда вы запишете их в карточках дней.';
+    const text = `${CHALLENGE.title}. Моя цель на 21 день\n\nЦель: ${v.goal}\n\nПочему это важно: ${v.why}\n\nМоя награда: ${v.reward}\n\nМои шаги по дням:\n${steps}\n`;
     download(new Blob([text], { type: 'text/plain;charset=utf-8' }), 'moya-cel-21-den.txt');
   });
+}
+
+// Личные шаги, которые участница записала в карточках дней.
+function dailySteps() {
+  return DAYS.map((d) => [d.day, store.mark(d.day).stepText.trim()]).filter(([, s]) => s);
+}
+
+// Цель видна в блоке прогресса, шаги собираются в блоке «Моя цель» сами.
+function renderGoalBits() {
+  const g = store.goal().goal.trim();
+  const box = $('[data-my-goal]');
+  box.hidden = !g;
+  box.innerHTML = g ? `<b>Моя цель</b>${escapeHtml(g)}` : '';
+  const steps = dailySteps();
+  $('[data-goal-steps]').innerHTML = steps.length
+    ? `<p class="note" style="margin:0 0 .4rem">Мои шаги по дням</p><ol class="goal__steps">${steps.map(([n, s]) => `<li value="${n}">${escapeHtml(s)}</li>`).join('')}</ol>`
+    : '';
 }
 
 // Напоминание: участница сама добавляет его в календарь телефона, сайт ничего не сохраняет.
@@ -413,7 +427,7 @@ function renderStreams() {
       <span class="stream__date">${dateLabel(s.day)}, ${weekday(s.day) === 'вс' ? 'воскресенье' : weekday(s.day)}</span>
       <h3>Эфир ${i + 1}. ${s.title}</h3>
       <p>${s.text}</p>
-      <span class="stream__time">Вечером, 20–30 минут</span>
+      <span class="stream__time">Вечером, около 40 минут</span>
     </article>`).join('');
 }
 
@@ -449,17 +463,24 @@ async function makeMap() {
   x.fillStyle = '#1a1510';
   x.font = '700 56px "Bodoni Moda", serif';
   x.fillText('MIKOVA', 90, 160);
+  const name = (store.get().mapName || '').trim();
+  const dy = name ? 60 : 0;
   x.fillStyle = '#925d10';
   x.font = '600 28px Inter, sans-serif';
-  x.fillText('М О Я   К А Р Т А   2 1   Д Н Я', 90, 300);
+  x.fillText(name ? 'К А Р Т А   2 1   Д Н Я' : 'М О Я   К А Р Т А   2 1   Д Н Я', 90, 270);
+  if (name) {
+    x.fillStyle = '#1a1510';
+    x.font = 'italic 400 64px "Playfair Display", serif';
+    x.fillText(name, 90, 350);
+  }
   x.fillStyle = '#1a1510';
-  x.font = '400 104px "Playfair Display", serif';
-  wrapText(x, CHALLENGE.title, 90, 430, 900, 116);
-  x.font = 'italic 400 48px "Playfair Display", serif';
+  x.font = '400 96px "Playfair Display", serif';
+  wrapText(x, CHALLENGE.title, 90, 430 + dy, 900, 108);
+  x.font = 'italic 400 46px "Playfair Display", serif';
   x.fillStyle = '#6a5a3c';
-  x.fillText(CHALLENGE.subtitle, 90, 680);
+  x.fillText(CHALLENGE.subtitle, 90, 660 + dy);
 
-  const size = 112, gap = 18, gx = (1080 - (size * 7 + gap * 6)) / 2, gy = 800;
+  const size = 112, gap = 18, gx = (1080 - (size * 7 + gap * 6)) / 2, gy = 800 + dy * 0.5;
   DAYS.forEach((d, i) => {
     const info = dayInfo(d.day);
     const px = gx + (i % 7) * (size + gap), py = gy + Math.floor(i / 7) * (size + gap + 10);
@@ -524,6 +545,9 @@ function wrapText(x, text, px, py, maxW, lh, maxLines = 4) {
 
 function initMap() {
   const img = $('[data-map-img]'), dl = $('[data-map-download]'), share = $('[data-map-share]');
+  const nameBox = $('[data-map-name]');
+  nameBox.value = store.get().mapName || '';
+  nameBox.addEventListener('input', () => store.update({ mapName: nameBox.value }));
   const goalBox = $('[data-map-goal]');
   goalBox.checked = store.get().mapGoal;
   goalBox.addEventListener('change', () => store.update({ mapGoal: goalBox.checked }));
@@ -563,7 +587,7 @@ function initDemo() {
   if (!params.has('demo')) return;
   const box = $('[data-demo]'), range = $('[data-demo-range]'), out = $('[data-demo-out]');
   box.hidden = false;
-  const label = (v) => (v === 0 ? '2 ноября, до старта' : v === 22 ? '24 ноября, после финала' : `день ${v}, ${dateLabel(v)}`);
+  const label = (v) => (v === 0 ? '2 ноября, до старта' : v === 22 ? '24 ноября, после финала' : `сегодня день ${v}, ${dateLabel(v)}`);
   const set = (v) => {
     demoNow = v === 0 ? openAt(1) - DAY_MS : v === 22 ? openAt(21) + DAY_MS : openAt(v) + 6 * 36e5;
     out.textContent = label(v);
@@ -576,10 +600,21 @@ function initDemo() {
 
 // Появление карточек при первом показе календаря.
 function initReveal() {
-  const seq = new IntersectionObserver((entries) => {
-    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('is-in'); seq.unobserve(e.target); }
-  }, { threshold: 0.12 });
-  $$('.reveal-seq').forEach((el) => seq.observe(el));
+  // Блоки «по очереди» привязаны к прокрутке: линия рисуется, шаги появляются один за другим.
+  const seqs = $$('.reveal-seq');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const onSeq = () => {
+    for (const el of seqs) {
+      const r = el.getBoundingClientRect();
+      const p = reduceMotion ? 1 : Math.min(1, Math.max(0, (innerHeight * 0.85 - r.top) / (innerHeight * 0.55)));
+      el.style.setProperty('--p', p.toFixed(3));
+      const kids = [...el.children];
+      kids.forEach((k, idx) => k.classList.toggle('is-on', p > 0 && p >= idx / kids.length));
+    }
+  };
+  addEventListener('scroll', onSeq, { passive: true });
+  addEventListener('resize', onSeq);
+  onSeq();
 
   const grid = $('[data-grid]');
   new IntersectionObserver(([e], obs) => {
@@ -592,7 +627,7 @@ function initReveal() {
 // ---------- Компас и скролл первого экрана ----------
 async function initHero() {
   const hero = $('.hero');
-  const intro = $('.hero__stage--intro'), partsStage = $('.hero__stage--parts');
+  const intro = $('.hero__stage--intro');
   let compass = null;
   try {
     const { createCompass } = await import('./compass.js');
@@ -608,11 +643,12 @@ async function initHero() {
     const p = Math.min(1, Math.max(0, -r.top / (r.height - innerHeight)));
     // 0–0.45: разлёт, 0.55–0.85: детали ложатся в маршрут из 21 точки.
     compass?.setProgress(fade(p, 0.05, 0.45), fade(p, 0.55, 0.85));
-    intro.style.opacity = String(1 - fade(p, 0.02, 0.18));
-    intro.style.visibility = p > 0.2 ? 'hidden' : 'visible';
-    const o = Math.min(fade(p, 0.28, 0.4), 1 - fade(p, 0.5, 0.58));
-    partsStage.style.opacity = String(o);
-    partsStage.style.transform = `translateY(${(1 - o) * 20}px)`;
+    // Текст не мигает: на широком экране стоит, пока компас разбирается справа, и уходит один раз,
+    // когда детали выстраиваются в маршрут. На телефоне места нет, поэтому он уходит сразу.
+    const narrow = innerWidth <= 860;
+    const out = narrow ? fade(p, 0.02, 0.14) : fade(p, 0.5, 0.6);
+    intro.style.opacity = String(1 - out);
+    intro.style.visibility = out >= 1 ? 'hidden' : 'visible';
     const ro = fade(p, 0.78, 0.9);
     routeStage.style.opacity = String(ro);
     routeStage.style.transform = `translate(-50%, ${(1 - ro) * 20}px)`;

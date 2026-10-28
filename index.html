@@ -47,15 +47,9 @@
           </div>
         </div>
 
-        <div class="hero__stage hero__stage--parts" aria-hidden="true">
-          <p class="kicker">21 деталь · 21 день</p>
-          <p class="hero__quote">Большая цель тоже <em>собирается из мелочей</em>.</p>
-          <p class="lead">Каждый день одна маленькая деталь: наблюдение, шаг, честный ответ себе. Через три недели они складываются в направление.</p>
-        </div>
-
         <div class="hero__stage hero__stage--route" aria-hidden="true">
           <p class="kicker">Ваш маршрут</p>
-          <p class="hero__quote">21 деталь легла в <em>21 день</em>. Начнём?</p>
+          <p class="hero__quote">Впереди <em>21 день</em>. Начнём?</p>
         </div>
 
         <div class="scroll-hint" aria-hidden="true"><span></span>листайте</div>
@@ -77,9 +71,13 @@
         </ul>
         <div class="streams-head">
           <h3 class="h3">Три эфира с Оксаной</h3>
-          <p class="note">Вечером, 20–30 минут: ответы на вопросы и живой разговор. Точное время Оксана объявит в своих соцсетях.</p>
+          <p class="note">Вечером, около 40 минут: ответы на вопросы и живой разговор. Точное время Оксана объявит в своих соцсетях.</p>
         </div>
         <div class="streams reveal-seq" data-streams></div>
+        <div class="together">
+          <h3>Мы вместе</h3>
+          <p>Одной идти сложнее. Здесь каждая идёт к своей цели, но не в одиночку: рядом Оксана, эфиры и другие участницы. Отчёты под общим хэштегом, поддержка друг друга и живое ощущение, что вы не одна.</p>
+        </div>
         <p class="note note--strong">Правильных ответов нет, и пропуск не наказывается. Вы делаете это для себя, поэтому и ответственность за результат полностью ваша.</p>
       </div>
     </section>
@@ -104,6 +102,7 @@
             <div class="progress__ring-label"><b data-counted>0</b><span>из 21 дня</span></div>
           </div>
           <div class="progress__body">
+            <p class="my-goal" data-my-goal hidden></p>
             <div class="stats">
               <div><b data-stat-tasks>0</b><span>заданий из 63</span></div>
               <div><b data-stat-steps>0</b><span>личных шагов</span></div>
@@ -113,7 +112,7 @@
             <div class="route" data-route aria-label="Маршрут 21 дня"></div>
             <div class="tails" data-tails></div>
             <div class="reminder">
-              <p>Хотите напоминание каждый день в 12:00? Добавьте его в календарь своего телефона. Сайт ничего о вас не сохраняет.</p>
+              <p>Хотите получать напоминание каждый день в 12:00 МСК? Добавьте его в календарь своего телефона. Сайт никаких сведений о вас не собирает и не сохраняет.</p>
               <button class="pill pill--ghost" type="button" data-reminder>Добавить напоминание</button>
             </div>
           </div>
@@ -126,7 +125,6 @@
           <span><i class="lg lg--missed">–</i>Пропущено</span>
           <span><i class="lg lg--return"></i>Нужно вернуться</span>
           <span><i class="lg lg--locked">🔒</i>Ещё закрыто</span>
-          <span><i class="lg lg--anchor">★</i>Якорный день</span>
         </div>
 
         <div class="grid" data-grid></div>
@@ -139,17 +137,17 @@
         <div>
           <p class="kicker">Дни 1–2</p>
           <h2 class="h2">Моя <em>цель</em></h2>
-          <p class="lead">Цель, которая важна вам, и награда, которую вы подарите себе за дорогу. Можно менять в любой день.</p>
+          <p class="lead">Цель, которая важна вам, и награда, которую вы подарите себе за дорогу. Можно менять в любой день. Свои шаги вы записываете в карточке каждого дня, а здесь они соберутся сами.</p>
           <p class="note">Эти записи хранятся только в вашем браузере, их никто, кроме вас, не видит.</p>
         </div>
         <form class="card goal__form" data-goal-form>
           <label>Моя цель на 21 день<textarea name="goal" rows="2" placeholder="Например: начать бегать по утрам"></textarea></label>
           <label>Почему она важна именно мне<textarea name="why" rows="2"></textarea></label>
           <label>Моя личная награда<input name="reward" type="text" placeholder="Чем я себя порадую, когда дойду"></label>
-          <label>Мои шаги, по одному в строке (до 21)<textarea name="steps" rows="5"></textarea></label>
+          <div data-goal-steps></div>
           <div class="goal__actions">
             <span class="saved" data-saved aria-live="polite"></span>
-            <button class="pill pill--ghost" type="button" data-download-goal>Скачать мою цель</button>
+            <button class="pill pill--ghost" type="button" data-download-goal>Скачать цель и шаги</button>
           </div>
         </form>
       </div>
@@ -161,7 +159,8 @@
         <div>
           <p class="kicker">Финал</p>
           <h2 class="h2">Моя карта <em>21 дня</em></h2>
-          <p class="lead">Картинка для сторис: все 21 день и число пройденных дней. Личных текстов на ней нет.</p>
+          <p class="lead">Картинка для сторис: ваше имя, все 21 день и число пройденных дней. Когда пройдёте все дни, отправьте её Оксане в Telegram, чтобы получить подарок.</p>
+          <label class="field map__name">Ваше имя на карте<input type="text" data-map-name placeholder="Например, Анна" maxlength="40"></label>
           <label class="check"><input type="checkbox" data-map-goal> Показать мою цель на карте</label>
           <div class="map__actions">
             <button class="pill pill--dark" type="button" data-map-make>Собрать карту</button>
@@ -179,7 +178,7 @@
     <div class="wrap footer__wrap">
       <div>
         <a class="logo" href="https://oksanamikova.com">MIKOVA</a>
-        <p class="note">Челлендж не лечит и не заменяет терапию. Мы не обещаем «изменить жизнь за 21 день»: только структуру, поддержку и честную работу над своей целью.</p>
+        <p class="note">Я не обещаю изменить вашу жизнь за 21 день. Я даю структуру, поддержку и честную работу над вашей целью. Челлендж не лечит и не заменяет терапию. <i>Оксана Микова</i></p>
       </div>
       <div class="footer__privacy">
         <p class="note">Отметки, цель и заметки хранятся только в вашем браузере.</p>
@@ -194,11 +193,12 @@
     <div class="day__body" data-day-body></div>
   </dialog>
 
-  <div class="demo" data-demo hidden>
-    <label>Демо: «прожить» челлендж <output data-demo-out></output>
+  <details class="demo" data-demo hidden>
+    <summary>Превью: <output data-demo-out></output></summary>
+    <label>Передвиньте, чтобы «прожить» челлендж
       <input type="range" min="0" max="22" step="1" data-demo-range>
     </label>
-  </div>
+  </details>
 
   <div class="toast" data-toast role="status" aria-live="polite"></div>
 

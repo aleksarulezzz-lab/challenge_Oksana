@@ -484,14 +484,14 @@ export function createCompass(canvas, { onReady } = {}) {
         const x = -w + (row % 2 ? 6 - col : col) * (2 * w / 6);
         routePts.push(new THREE.Vector3(x, halfH * 0.3 - row * rowH + Math.sin(col * 0.9) * 0.08, 0));
       }
-      routeR = (2 * w / 6) * 0.36;
+      routeR = (2 * w / 6) * 0.42;
     } else {
       const w = halfW * 0.82;
       for (let i = 0; i < 21; i++) {
         const t = i / 20;
         routePts.push(new THREE.Vector3(-w + t * 2 * w, halfH * 0.02 + Math.sin(t * Math.PI * 3) * halfH * 0.16, 0));
       }
-      routeR = (2 * w / 20) * 0.38;
+      routeR = (2 * w / 20) * 0.46;
     }
     const curve = new THREE.CatmullRomCurve3(routePts.map((v) => v.clone().setZ(-0.3)));
     routeLine.geometry.setFromPoints(curve.getPoints(400));
@@ -548,9 +548,11 @@ export function createCompass(canvas, { onReady } = {}) {
         lerp(home.y + off.y * t, rp.y - center.y * sc, r),
         lerp(home.z + off.z * t, rp.z - center.z * sc, r),
       );
+      // На маршруте детали не плоские: наклонены и медленно поворачиваются, чтобы металл играл бликами.
+      const turn = reduce ? 0 : Math.sin(time * 0.6 + routeIdx * 0.7) * 0.5;
       p.rotation.set(
-        lerp(homeRot.x + rot[0] * t, 0, r),
-        lerp(homeRot.y + rot[1] * t, 0, r),
+        lerp(homeRot.x + rot[0] * t, -0.55, r),
+        lerp(homeRot.y + rot[1] * t, 0.35 + turn, r),
         homeRot.z + rot[2] * t,
       );
       p.scale.setScalar(lerp(1, sc, r));
@@ -575,9 +577,10 @@ export function createCompass(canvas, { onReady } = {}) {
       root.position.set(0, lerp(1.45, 1.3, se), 0);
       root.scale.setScalar(lerp(0.68, 0.62, se));
     } else {
-      root.rotation.set(-0.3 + se * 0.12 + pointer.sy * 0.15, -0.35 + se * 1.25 + pointer.sx * 0.25 + idle, se * 0.12);
-      root.position.set(lerp(1.85, 0.75, se), lerp(-0.25, -0.2, se), 0);
-      root.scale.setScalar(lerp(0.92, 0.8, se));
+      // Разбирается в правой половине, текст слева остаётся на месте.
+      root.rotation.set(-0.3 + se * 0.1 + pointer.sy * 0.15, -0.35 + se * 1.05 + pointer.sx * 0.25 + idle, se * 0.1);
+      root.position.set(lerp(1.85, 2.15, se), lerp(-0.25, -0.15, se), 0);
+      root.scale.setScalar(lerp(0.92, 0.66, se));
     }
     // На маршруте корпус встаёт ровно к экрану, чтобы точки легли в линию.
     if (sr > 0) {
@@ -587,7 +590,7 @@ export function createCompass(canvas, { onReady } = {}) {
     }
     root.updateMatrixWorld();
     routeLine.material.opacity = ease(clamp01(route * 1.6 - 0.5)) * 0.85;
-    glass.material.opacity = lerp(0.16, 0.55, sr);
+    glass.material.opacity = lerp(lerp(0.16, 0.38, se), 0.6, sr);
 
     // Мягкая тень позади компаса, исчезает, когда он разлетается.
     shadow.position.set(root.position.x + 0.35 * root.scale.x, root.position.y - 0.45 * root.scale.x, -1.4);
