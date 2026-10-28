@@ -133,8 +133,10 @@ em { font-style: normal; color: var(--accent); }
 /* Появление по очереди: каждый элемент показывается, когда до него докрутили */
 .reveal-seq > * { opacity: 0; transform: translateY(36px) scale(.98); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.8,.2,1); }
 .reveal-seq > .is-on { opacity: 1; transform: none; }
+.reveal-up { opacity: 0; transform: translateY(36px) scale(.98); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.8,.2,1); }
+.reveal-up.is-on { opacity: 1; transform: none; }
 .no-js-motion .reveal-seq > * { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) { .reveal-seq > *, .week__dot { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .reveal-seq > *, .reveal-up, .week__dot { transition: none !important; } }
 .note--strong { font-size: 1.0625rem; color: var(--fg); border-left: 2px solid var(--accent); padding-left: 1rem; max-width: 44rem; }
 .week__n { font: 400 3rem/1 var(--font-display); color: var(--accent); }
 .week h3 { font: 400 1.625rem/1.2 var(--font-display); margin: .5rem 0 .25rem; }

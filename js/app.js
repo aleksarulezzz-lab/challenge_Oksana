@@ -118,12 +118,13 @@ function renderGrid() {
     const days = DAYS.slice((w.n - 1) * 7, w.n * 7);
     // Неделя закончилась в полночь МСК после её последнего дня.
     const over = now() >= startMs + w.n * 7 * DAY_MS;
-    return `<div class="grid__week">
+    return `<div class="grid__week reveal-seq">
       <h3>Неделя ${w.n} · ${w.name} <small>${w.dates}</small></h3>
-      <div class="grid__row">${days.map(card).join('')}</div>
+      <div class="grid__row reveal-seq">${days.map(card).join('')}</div>
       ${over ? `<aside class="week-done"><b>${w.n === 3 ? 'Вы прошли весь путь' : `Неделя ${w.n} позади`}</b><p>${w.done}</p></aside>` : ''}
     </div>`;
   }).join('');
+  revealTick();
 }
 
 function card(d) {
@@ -598,30 +599,29 @@ function initDemo() {
   set(Number(range.value));
 }
 
-// Появление карточек при первом показе календаря.
+// Появление при прокрутке. Блоки .reveal-seq показывают детей по очереди (и рисуют линию через --p),
+// .reveal-up появляется целиком. Вызывается и после перерисовки календаря, чтобы новые карточки
+// сразу получили своё состояние без повторной анимации.
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function revealTick() {
+  for (const el of $$('.reveal-seq')) {
+    const r = el.getBoundingClientRect();
+    const p = reduceMotion ? 1 : Math.min(1, Math.max(0, (innerHeight * 0.85 - r.top) / (innerHeight * 0.55)));
+    el.style.setProperty('--p', p.toFixed(3));
+    const kids = [...el.children];
+    kids.forEach((k, idx) => k.classList.toggle('is-on', p > 0 && p >= idx / kids.length));
+  }
+  for (const el of $$('.reveal-up')) {
+    el.classList.toggle('is-on', reduceMotion || el.getBoundingClientRect().top < innerHeight * 0.9);
+  }
+}
+
 function initReveal() {
   // Блоки «по очереди» привязаны к прокрутке: линия рисуется, шаги появляются один за другим.
-  const seqs = $$('.reveal-seq');
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const onSeq = () => {
-    for (const el of seqs) {
-      const r = el.getBoundingClientRect();
-      const p = reduceMotion ? 1 : Math.min(1, Math.max(0, (innerHeight * 0.85 - r.top) / (innerHeight * 0.55)));
-      el.style.setProperty('--p', p.toFixed(3));
-      const kids = [...el.children];
-      kids.forEach((k, idx) => k.classList.toggle('is-on', p > 0 && p >= idx / kids.length));
-    }
-  };
-  addEventListener('scroll', onSeq, { passive: true });
-  addEventListener('resize', onSeq);
-  onSeq();
+  addEventListener('scroll', revealTick, { passive: true });
+  addEventListener('resize', revealTick);
+  revealTick();
 
-  const grid = $('[data-grid]');
-  new IntersectionObserver(([e], obs) => {
-    if (!e.isIntersecting) return;
-    $$('.win', grid).forEach((w, i) => { w.style.animationDelay = `${i * 40}ms`; w.classList.add('reveal'); });
-    obs.disconnect();
-  }, { threshold: 0.1 }).observe(grid);
 }
 
 // ---------- Компас и скролл первого экрана ----------
