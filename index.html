@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Перепридумай себя · 21 день с Оксаной Миковой</title>
+  <meta name="description" content="21 день, одна цель. Два задания от Оксаны Миковой каждый день, ваш личный шаг и награда за то, что дошли. Старт 3 ноября.">
+  <meta name="theme-color" content="#f3ebdb">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@600;700&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+  <a class="skip" href="#calendar">Перейти к календарю</a>
+
+  <header class="topbar">
+    <a class="logo" href="https://oksanamikova.com" aria-label="Сайт Оксаны Миковой">MIKOVA</a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="#how">Как устроено</a>
+      <a href="#calendar">Календарь</a>
+      <a href="#goal">Моя цель</a>
+      <a href="#map">Карта</a>
+    </nav>
+    <a class="pill pill--dark topbar__cta" href="#calendar">Мой календарь</a>
+  </header>
+
+  <main>
+    <!-- Первый экран: компас собран, при скролле разлетается на 21 деталь -->
+    <section class="hero" id="top">
+      <div class="hero__sticky">
+        <canvas class="hero__canvas" aria-hidden="true"></canvas>
+        <div class="hero__fallback" aria-hidden="true">
+          <img src="assets/compass-fallback.svg" alt="">
+        </div>
+
+        <div class="hero__stage hero__stage--intro">
+          <p class="kicker">Челлендж Оксаны Миковой · 3–23 ноября</p>
+          <h1 class="display" data-title>Перепридумай <em>себя</em></h1>
+          <p class="hero__sub" data-subtitle>21 день, одна цель.</p>
+          <p class="lead">Два задания от Оксаны каждый день, ваш личный шаг и награда за то, что дошли. От 3 до 15 минут, в своём темпе.</p>
+          <div class="hero__actions">
+            <a class="pill pill--dark" href="#calendar">Открыть календарь <span aria-hidden="true">↓</span></a>
+            <span class="hero__countdown" data-countdown></span>
+          </div>
+        </div>
+
+        <div class="hero__stage hero__stage--parts" aria-hidden="true">
+          <p class="kicker">21 деталь · 21 день</p>
+          <p class="hero__quote">Большая цель тоже <em>собирается из мелочей</em>.</p>
+          <p class="lead">Каждый день одна маленькая деталь: наблюдение, шаг, честный ответ себе. Через три недели они складываются в направление.</p>
+        </div>
+
+        <div class="scroll-hint" aria-hidden="true"><span></span>листайте</div>
+      </div>
+    </section>
+
+    <!-- Как устроено -->
+    <section class="section how" id="how">
+      <div class="wrap">
+        <p class="kicker">Как это устроено</p>
+        <h2 class="h2">Три недели. <em>Заметить, понять, выбрать.</em></h2>
+        <div class="weeks" data-weeks></div>
+        <ul class="rules">
+          <li><b>2 задания Оксаны</b><span>каждый день: наблюдение и маленькое действие, от 3 до 15 минут</span></li>
+          <li><b>Ваш личный шаг</b><span>к своей цели, которую вы выберете в первый день</span></li>
+          <li><b>Окно в 06:00 МСК</b><span>каждое утро открывается новая карточка. Пропустили? Вернитесь в выходные</span></li>
+          <li><b>Награда</b><span data-reward></span></li>
+        </ul>
+        <p class="note">Правильных ответов нет. Можно по минимуму. Пропуск не наказывается.</p>
+      </div>
+    </section>
+
+    <!-- Календарь и прогресс -->
+    <section class="section calendar topo" id="calendar">
+      <div class="wrap">
+        <div class="calendar__head">
+          <div>
+            <p class="kicker" data-today-kicker>Ваш путь</p>
+            <h2 class="h2">Мой <em>календарь</em></h2>
+          </div>
+          <p class="today-badge" data-today-badge></p>
+        </div>
+
+        <div class="progress card">
+          <div class="progress__ring">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="ring-bg" cx="60" cy="60" r="52"/>
+              <circle class="ring-fg" cx="60" cy="60" r="52" data-ring/>
+            </svg>
+            <div class="progress__ring-label"><b data-counted>0</b><span>из 21 дня</span></div>
+          </div>
+          <div class="progress__body">
+            <div class="stats">
+              <div><b data-stat-tasks>0</b><span>заданий Оксаны из 42</span></div>
+              <div><b data-stat-steps>0</b><span>личных шагов</span></div>
+              <div><b data-stat-missed>0</b><span>окон ждут вас</span></div>
+            </div>
+            <div class="route" data-route aria-label="Маршрут 21 дня"></div>
+            <div class="tails" data-tails></div>
+          </div>
+        </div>
+
+        <div class="legend" aria-label="Обозначения">
+          <span><i class="lg lg--today"></i>Сегодня</span>
+          <span><i class="lg lg--done">✓</i>Выполнено</span>
+          <span><i class="lg lg--partial">½</i>Частично</span>
+          <span><i class="lg lg--waiting"></i>Можно вернуться</span>
+          <span><i class="lg lg--skipped">–</i>Пропущено</span>
+          <span><i class="lg lg--locked">🔒</i>Ещё закрыто</span>
+          <span><i class="lg lg--anchor">★</i>Якорный день</span>
+        </div>
+
+        <div class="grid" data-grid></div>
+      </div>
+    </section>
+
+    <!-- Личная цель -->
+    <section class="section goal" id="goal">
+      <div class="wrap goal__wrap">
+        <div>
+          <p class="kicker">Дни 1–2</p>
+          <h2 class="h2">Моя <em>цель</em></h2>
+          <p class="lead">Цель, которая важна вам, и награда, которую вы подарите себе за дорогу. Можно менять в любой день.</p>
+          <p class="note">Эти записи хранятся только в вашем браузере. Оксана и мы их не видим.</p>
+        </div>
+        <form class="card goal__form" data-goal-form>
+          <label>Моя цель на 21 день<textarea name="goal" rows="2" placeholder="Например: начать бегать по утрам"></textarea></label>
+          <label>Почему она важна именно мне<textarea name="why" rows="2"></textarea></label>
+          <label>Моя личная награда<input name="reward" type="text" placeholder="Чем я себя порадую, когда дойду"></label>
+          <label>Мои шаги, по одному в строке (до 21)<textarea name="steps" rows="5"></textarea></label>
+          <div class="goal__actions">
+            <span class="saved" data-saved aria-live="polite"></span>
+            <button class="pill pill--ghost" type="button" data-download-goal>Скачать мою цель</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Итоговая карта -->
+    <section class="section map topo" id="map">
+      <div class="wrap map__wrap">
+        <div>
+          <p class="kicker">Финал</p>
+          <h2 class="h2">Моя карта <em>21 дня</em></h2>
+          <p class="lead">Картинка для сторис: сетка из 21 окна и число пройденных дней. Личных текстов на ней нет.</p>
+          <label class="check"><input type="checkbox" data-map-goal> Показать мою цель на карте</label>
+          <div class="map__actions">
+            <button class="pill pill--dark" type="button" data-map-make>Собрать карту</button>
+            <a class="pill pill--ghost" data-map-download download="moya-karta-21-dnya.png" hidden>Скачать</a>
+            <button class="pill pill--ghost" type="button" data-map-share hidden>Поделиться</button>
+          </div>
+          <div class="reward-banner" data-reward-banner hidden></div>
+        </div>
+        <div class="map__preview"><img data-map-img alt="Моя карта 21 дня" hidden></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__wrap">
+      <div>
+        <a class="logo" href="https://oksanamikova.com">MIKOVA</a>
+        <p class="note">Челлендж не лечит и не заменяет терапию. Мы не обещаем «изменить жизнь за 21 день»: только структуру, поддержку и честную работу над своей целью.</p>
+      </div>
+      <div class="footer__privacy">
+        <p class="note">Отметки, цель и заметки хранятся только в этом браузере.</p>
+        <button class="pill pill--ghost" type="button" data-wipe>Удалить мои данные</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Окно дня -->
+  <dialog class="day" data-dialog aria-labelledby="day-title">
+    <form method="dialog" class="day__close"><button class="icon-btn" aria-label="Закрыть">✕</button></form>
+    <div class="day__body" data-day-body></div>
+  </dialog>
+
+  <div class="demo" data-demo hidden>
+    <label>Демо: «прожить» челлендж <output data-demo-out></output>
+      <input type="range" min="0" max="22" step="1" data-demo-range>
+    </label>
+  </div>
+
+  <div class="toast" data-toast role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
