@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -30 400 430">
+  <defs>
+    <radialGradient id="g" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#f6dc9b"/><stop offset=".5" stop-color="#c9973f"/><stop offset="1" stop-color="#7a5410"/></radialGradient>
+    <radialGradient id="d" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#f8efd9"/><stop offset="1" stop-color="#d6bf8f"/></radialGradient>
+  </defs>
+  <rect x="186" y="6" width="28" height="30" rx="6" fill="url(#g)"/>
+  <circle cx="200" cy="-2" r="20" fill="none" stroke="url(#g)" stroke-width="8"/>
+  <circle cx="200" cy="215" r="180" fill="url(#g)"/>
+  <circle cx="200" cy="215" r="156" fill="url(#d)" stroke="#6f4710" stroke-width="3"/>
+  <g fill="#1a1510" font-family="Georgia,serif" font-size="30" text-anchor="middle">
+    <text x="200" y="102" fill="#8f3a28">N</text><text x="200" y="350">S</text><text x="322" y="226">E</text><text x="78" y="226">W</text>
+  </g>
+  <path d="M200 215 210 205 200 110 190 205Z" fill="#2a1f14"/><path d="M200 215 210 225 200 320 190 225Z" fill="#d9b866" stroke="#2a1f14"/>
+  <path d="M200 215 210 225 305 215 210 205Z" fill="#d9b866" stroke="#2a1f14"/><path d="M200 215 190 205 95 215 190 225Z" fill="#2a1f14"/>
+  <path d="M200 120 214 215 200 215Z" fill="#9c2f1e"/><path d="M200 310 186 215 200 215Z" fill="#26304d"/>
+  <circle cx="200" cy="215" r="9" fill="url(#g)"/>
+</svg>
