@@ -60,7 +60,7 @@ em { font-style: normal; color: var(--accent); }
 .pill:hover { transform: translateY(-2px); }
 .pill--dark { background: var(--fg); color: var(--bg); }
 .pill--ghost:hover { background: var(--fg); color: var(--bg); }
-.pill[hidden] { display: none; }
+[hidden] { display: none !important; }
 .icon-btn { width: 2.75rem; height: 2.75rem; border-radius: 50%; border: 1px solid var(--line); background: var(--card); cursor: pointer; font-size: 1rem; }
 
 /* Шапка */

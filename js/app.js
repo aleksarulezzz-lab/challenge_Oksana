@@ -25,7 +25,8 @@ if (params.has('date')) {
 }
 const now = () => demoNow ?? Date.now();
 const currentDay = () => DAYS.filter((d) => openAt(d.day) <= now()).length;
-const canMark = (n) => n <= currentDay() && now() <= deadlineMs;
+const isClosed = () => now() > deadlineMs;
+const canMark = (n) => n <= currentDay() && !isClosed();
 
 // ---------- Состояние дня ----------
 function dayInfo(n) {
@@ -39,7 +40,7 @@ function dayInfo(n) {
   else if (done > 0) state = 'partial';
   else if (n === cur && !skipped) state = 'today';
   else state = 'missed';
-  return { state, done, counted: done >= CHALLENGE.tasksToCountDay, step: m.step, isToday: n === cur, needsReturn: ['partial', 'missed'].includes(state) && n < cur };
+  return { state, done, counted: done >= CHALLENGE.tasksToCountDay, step: m.step, isToday: n === cur, needsReturn: ['partial', 'missed'].includes(state) && n < cur && !isClosed() };
 }
 
 const STATE_LABEL = {
@@ -93,10 +94,12 @@ function renderHeader() {
   const t = now();
   let text;
   if (cur === 0) {
-    const days = Math.ceil((openAt(1) - t) / DAY_MS);
-    text = `Старт 3 ноября${days > 0 ? ` · через ${days} ${plural(days, 'день', 'дня', 'дней')}` : ''}`;
+    // Считаем календарные дни по Москве: 3 ноября до 06:00 это «сегодня», а не «через 1 день».
+    const mskDay = (ms) => Math.floor((ms + 3 * 36e5) / DAY_MS);
+    const days = mskDay(startMs) - mskDay(t);
+    text = days > 0 ? `Старт 3 ноября · через ${days} ${plural(days, 'день', 'дня', 'дней')}` : `Старт сегодня в 0${CHALLENGE.openHourMsk}:00 МСК`;
   } else if (t > openAt(21) + DAY_MS - CHALLENGE.openHourMsk * 36e5) {
-    text = 'Челлендж завершён. Окна остаются открытыми.';
+    text = 'Челлендж завершён. Все задания можно перечитать.';
   } else {
     text = `Сейчас идёт день ${cur} из 21`;
   }
@@ -182,7 +185,9 @@ function renderProgress() {
   `;
 
   const tails = $('[data-tails]');
-  if (missed.length) {
+  if (isClosed()) {
+    tails.innerHTML = '<p>Челлендж завершён. Время для отметок закончилось 24 ноября.</p>';
+  } else if (missed.length) {
     tails.innerHTML = `<p>Пропущенные дни можно выполнить до 24 ноября:</p>${missed.map((n) => `<button class="tail" data-day="${n}">День ${n} · ${dateLabel(n)}</button>`).join('')}`;
   } else {
     tails.innerHTML = `<p>${cur === 0 ? 'Здесь появятся пропущенные дни, если они будут.' : 'Пропущенных дней нет. Вы идёте ровно.'}</p>`;
@@ -280,7 +285,7 @@ function renderDay(n) {
     </div>
     <p class="note" style="margin-top:1rem">${editable
       ? (n < currentDay() ? 'Вы возвращаетесь к прошедшему дню, и это нормально. ' : '') + 'Отметки можно менять до 24 ноября, 23:59 МСК.'
-      : 'Время для отметок закончилось 24 ноября. Окно остаётся открытым для чтения.'}</p>
+      : 'Время для отметок закончилось 24 ноября. Задания остаются открытыми для чтения.'}</p>
     <div class="day__nav">
       <button class="pill pill--ghost" type="button" data-goto="${n - 1}" ${n === 1 ? 'hidden' : ''}>← День ${n - 1}</button>
       <button class="pill pill--ghost" type="button" data-goto="${n + 1}" ${n === 21 || n + 1 > currentDay() ? 'hidden' : ''}>День ${n + 1} →</button>
@@ -357,7 +362,7 @@ document.addEventListener('click', (e) => {
   const el = e.target.closest('.win, .route__dot, .tail');
   if (!el || dialog.contains(el)) return;
   const n = Number(el.dataset.day);
-  if (dayInfo(n).state === 'locked') { toast(`Окно дня ${n} откроется ${dateLabel(n)}`); return; }
+  if (dayInfo(n).state === 'locked') { toast(`День ${n} откроется ${dateLabel(n)}`); return; }
   openDialog(n);
 });
 
@@ -504,7 +509,7 @@ async function makeMap() {
   const w = x.measureText(String(counted)).width;
   x.font = '400 56px "Playfair Display", serif';
   x.fillStyle = '#6a5a3c';
-  x.fillText(`из 21 ${plural(counted, 'дня', 'дней', 'дней')} пройдено`, 110 + w, 1440);
+  x.fillText('из 21 дня пройдено', 110 + w, 1440);
 
   if ($('[data-map-goal]').checked && store.goal().goal.trim()) {
     x.fillStyle = '#925d10';
